@@ -4,7 +4,7 @@ let localstream = null
 
 function startRecording() {
     console.log('start recording')
-    context = new window.AudioContext()
+    context = new window.AudioContext({ sampleRate: 16000 })
     socket.emit('start', { 'sampleRate': context.sampleRate })
 
     navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then((stream) => {
@@ -17,7 +17,10 @@ function startRecording() {
 
         processor.onaudioprocess = (e) => {
             const voice = e.inputBuffer.getChannelData(0)
-            socket.emit('send_pcm', voice.buffer)
+            socket.emit('send_pcm', voice.buffer, (res) => {
+                console.log(`text: ${res.text}`)
+                document.getElementById('transcript').innerText = res.text
+            })
         }
     }).catch((e) => {
         // "DOMException: Rrequested device not found" will be caught if no mic is available
@@ -25,15 +28,16 @@ function startRecording() {
     })
 }
 
-function stopRecording() {
+async function stopRecording() {
     console.log('stop recording')
     processor.disconnect()
     processor.onaudioprocess = null
     processor = null
-    localstream.getTracks().forEach((track) => {
-        track.stop()
-    })
+    localstream.getTracks().forEach(track => track.stop())
+
     socket.emit('stop', '', (res) => {
-        console.log(`Audio data is saved as ${res.filename}`)
+        console.log(`text: ${res.text}`)
+        document.getElementById('transcript').innerText = res.text
     })
+    console.log('stop recording end')
 }
